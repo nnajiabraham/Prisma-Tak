@@ -1,0 +1,309 @@
+
+npm install -g prisma
+prisma init hello-world
+
+prisma init hello-world
+
+(mongodb access string)
+mongodb+srv://test:test@cluster0-drzn1.mongodb.net/test?retryWrites=true
+
+What kind of database do you want to deploy to? MongoDB
+Enter MongoDB connection string mongodb+srv://test:test@cluster0-drzn1.mongodb
+.net/test?retryWrites=true
+
+Does your database contain existing data? No: Set up without existing data
+
+Select the programming language for the generated Prisma client Prisma JavaScript Client
+
+Up next
+ 1. Start your Prisma server: docker-compose up -d
+	if ERROR: could not find an available, non-overlapping IPv4 address pool among the 		defaults to assign to the network
+	
+	docker network prune or check if connected to VPN
+
+  2. Deploy your Prisma service: prisma deploy
+
+open database endpoint
+localhost:4466
+ or 
+http://localhost:4466/management for the management api to prisma service if you don't want to deal with docker
+
+prep node app
+touch index.js
+npm init -y
+npm install --save prisma-client-lib
+(the prisma client enables you to be able to access the daabs in your application server)
+
+paste the ffg in node app(index.js)
+------------------------------------
+
+const { prisma } = require('./generated/prisma-client')
+
+// A `main` function so that we can use async/await
+async function main() {
+
+  // Create a new user called `Alice`
+  const newUser = await prisma.createUser({ name: 'Alice' })
+  console.log(`Created new user: ${newUser.name} (ID: ${newUser.id})`)
+
+  // Read all users from the database and print them to the console
+  const allUsers = await prisma.users()
+  console.log(allUsers)
+}
+
+main().catch(e => console.error(e))
+
+
+------------------------------------------
+
+Run Node app with 'node index.js'
+
+
+you can change your schema 
+
+
+add the following
+--------------
+
+type User {
+  id: ID! @id
+  email: String @unique
+  name: String!
+  posts: [Post!]! @relation(link: INLINE)
+}
+
+type Post {
+  id: ID! @id
+  title: String!
+  published: Boolean! @default(value: false)
+  author: User
+}
+
+--------------------
+
+upnext redeploy and regenerate
+prisma deploy
+prisma generate
+
+
+you can add a hook for it to get regenerated after each deploy by updating the prisma.yml with adding 
+
+----------
+hooks:
+  post-deploy:
+    - prisma generate
+
+-------------------
+
+
+update index.js with
+
+
+----------------------------
+
+const { prisma } = require('./generated/prisma-client')
+
+// A `main` function so that we can use async/await
+async function main() {
+
+  // Create a new user with a new post
+  const newUser = await prisma
+    .createUser({
+      name: "Abraham",
+      email: "abe@example.com",
+      posts: {
+        create: [{
+          title: "testitle2",
+        }, {
+          title: "worddddddd",
+        }]
+      },
+    })
+  console.log(`Created new user: ${newUser.name} (ID: ${newUser.id})`)
+
+  // Read all users from the database and print them to the console
+  const allUsers = await prisma.users()
+  console.log(allUsers)
+
+  const allPosts = await prisma.posts()
+  console.log(allPosts)
+}
+
+main().catch(e => console.error(e))
+
+------------------------------------------
+
+
+can query relational data easily
+
+-----------------------------------
+
+const { prisma } = require('./generated/prisma-client')
+
+// A `main` function so that we can use async/await
+async function main() {
+
+  // Read the previously created user from the database and print their posts to the console
+  const postsByUser = await prisma
+    .user({ email: "abe@example.com" })
+    .posts()
+  console.log(`All posts by that user: ${JSON.stringify(postsByUser)}`)
+
+}
+
+main().catch(e => console.error(e))
+
+
+-------------------------------------------------
+
+
+now add that to our initial grapql-node-app or you can use it for your rest API
+
+--------------------------------------------------
+
+npm install --save graphql-yoga
+
+
+---------------------------------
+
+
+
+define the graphql API. Every GraphQL API is based on a GraphQL schema that specifies all API operations and data structures. The schema is a contract between client and server.
+
+------------------------
+touch schema.graphql
+
+-------------------------
+
+
+add the following to your schema.grapql
+---------------------------------------
+
+type Query {
+  publishedPosts: [Post!]!
+  post(postId: ID!): Post
+  postsByUser(userId: ID!): [Post!]!
+  users: [User!]!
+}
+
+type Mutation {
+  createUser(name: String!): User
+  createDraft(title: String!, userId: ID!): Post
+  publish(postId: ID!): Post
+}
+
+type User {
+  id: ID!
+  email: String
+  name: String!
+  posts: [Post!]!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  published: Boolean!
+  author: User
+}
+
+
+------------------------
+
+The Post and User types are straightforward re-definitions of the models specified in datamodel.prisma, except that the Prisma-specific directives have been removed.
+
+
+lastly our resolver functions replace the content of index.js
+-----------------------------
+
+
+
+const { prisma } = require('./generated/prisma-client')
+const { GraphQLServer } = require('graphql-yoga')
+
+const resolvers = {
+  Query: {
+    publishedPosts(root, args, context) {
+      return context.prisma.posts({ where: { published: true } })
+    },
+    post(root, args, context) {
+      return context.prisma.post({ id: args.postId })
+    },
+    users(root, args, context) {
+      return context.prisma.users()
+    },
+    postsByUser(root, args, context) {
+      return context.prisma.user({
+        id: args.userId
+      }).posts()
+    }
+  },
+  Mutation: {
+    createDraft(root, args, context) {
+      return context.prisma.createPost(
+        {
+          title: args.title,
+          author: {
+            connect: { id: args.userId }
+          }
+        },
+
+      )
+    },
+    publish(root, args, context) {
+      return context.prisma.updatePost(
+        {
+          where: { id: args.postId },
+          data: { published: true },
+        },
+
+      )
+    },
+    createUser(root, args, context) {
+      return context.prisma.createUser(
+        { name: args.name },
+      )
+    }
+  },
+  User: {
+    posts(root, args, context) {
+      return context.prisma.user({
+        id: root.id
+      }).posts()
+    }
+  },
+  Post: {
+    author(root, args, context) {
+      return context.prisma.post({
+        id: root.id
+      }).author()
+    }
+  }
+}
+
+
+--------------------------------------
+
+
+Configure your graphQL server/ application server
+------------------------------
+
+const server = new GraphQLServer({
+  typeDefs: './schema.graphql',
+  resolvers,
+  context: {
+    prisma
+  },
+})
+server.start(() => console.log('Server is running on http://localhost:4000'))
+
+
+-----------------------
+
+start server
+---------------
+
+node index.js
+
+
+
+

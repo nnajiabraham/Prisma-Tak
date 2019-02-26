@@ -1,0 +1,33 @@
+advantages of graphql
+implent simple node graphql with resolvers
+
+what is prisma, advantages
+performant query resolution (N+1 problem) if request user, need post then you need to make
+request for user and then get post id's and go back to get post. solves with fetching and caching
+
+
+out of box crud and realtime operation
+
+end to end typesafety (can get with only graphql )
+
+graphqlgen - code gen tool looks at graphql schema and scaffold reolvers needed entirely typesafe, go, typescript etc.
+
+give example of normal resolvers and with using prisma
+
+prisma cli
+existing db introspect db and generate client api on that
+create new db configured with docker
+hosted db in prisma cloud
+select client JS since node JS
+
+generated files 3
+prisma.yml main config points to datamodel which is written with graphql schema language(graphql SDL) - 
+special directives for constraints on datamodel
+
+prisma deploy command
+and generate client
+can go in  node script, use prisma generated client to perform operations against database
+
+add prisma-client-lib and graphql dependancies to proj
+
+bring prisma client and earlier graphql resolver functions together for graphql frontend api

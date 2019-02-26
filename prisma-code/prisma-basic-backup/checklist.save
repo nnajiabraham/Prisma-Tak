@@ -1,0 +1,17 @@
+npm install -g prisma
+Install Docker
+
+get mongodb details
+mongodb+srv://test:test@cluster0-drzn1.mongodb.net/test?retryWrites=true
+
+
+prisma init hello-world
+connect to existing db
+it generate client JS
+  1. Start your Prisma server: docker-compose up -d
+	if non-overlaping IPV4 err, docker network prune or check vpn
+  2. Deploy your Prisma service: prisma deploy
+view your prisma daas api
+
+
+
